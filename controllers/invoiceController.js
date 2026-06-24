@@ -11,12 +11,12 @@ const updateCustomerDue = async (customerId) => {
   const totalDue = invoices.reduce((sum, inv) => {
     if (inv.status === 'Unpaid') return sum + inv.grandTotal;
     if (inv.status === 'Partial') return sum + (inv.grandTotal - inv.pay);
-    if (inv.status === 'DueToNext') return sum;
+    if (inv.status === 'DueToNext' || inv.status === 'Carry-Forward') return sum;
     return sum;
   }, 0);
 
   const dueHistory = invoices
-    .filter((inv) => inv.status !== 'Paid' && inv.status !== 'DueToNext')
+    .filter((inv) => inv.status !== 'Paid' && inv.status !== 'DueToNext' && inv.status !== 'Carry-Forward')
     .map((inv) => ({
       invoiceId: inv._id,
       amount: inv.status === 'Partial' ? inv.grandTotal - inv.pay : inv.grandTotal,
@@ -57,6 +57,7 @@ export const getInvoices = async (req, res, next) => {
     const total = await Invoice.countDocuments(query);
     const invoices = await Invoice.find(query)
       .populate('customer', 'name phone')
+      .populate('carriedForwardTo', 'invoiceNo')
       .sort({ date: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -78,7 +79,9 @@ export const getInvoices = async (req, res, next) => {
 
 export const getInvoice = async (req, res, next) => {
   try {
-    const invoice = await Invoice.findById(req.params.id).populate('customer', 'name phone');
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('customer', 'name phone')
+      .populate('carriedForwardTo', 'invoiceNo');
     if (!invoice) throw new AppError('Invoice not found', 404);
     sendSuccess(res, invoice);
   } catch (error) {
@@ -175,8 +178,9 @@ export const createInvoice = async (req, res, next) => {
         if (remaining <= 0) break;
         const oldDue = old.status === 'Partial' ? old.grandTotal - old.pay : old.grandTotal;
         if (oldDue <= remaining) {
-          old.status = 'DueToNext';
+          old.status = 'Carry-Forward';
           old.pay = old.grandTotal;
+          old.carriedForwardTo = invoice._id;
           remaining -= oldDue;
         } else {
           old.pay = (old.pay || 0) + remaining;

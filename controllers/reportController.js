@@ -10,7 +10,9 @@ export const getSummary = async (req, res, next) => {
       if (startDate) dateFilter.$gte = new Date(startDate);
       if (endDate) dateFilter.$lte = new Date(endDate + 'T23:59:59.999Z');
     }
-    const match = Object.keys(dateFilter).length ? { date: dateFilter } : {};
+    const match = Object.keys(dateFilter).length
+      ? { date: dateFilter, status: { $ne: 'Carry-Forward' } }
+      : { status: { $ne: 'Carry-Forward' } };
 
     const [salesData, customerData, outstandingData] = await Promise.all([
       Invoice.aggregate([
@@ -75,7 +77,9 @@ export const getTrends = async (req, res, next) => {
     let dateFilter = {};
     if (startDate) dateFilter.$gte = new Date(startDate);
     if (endDate) dateFilter.$lte = new Date(endDate + 'T23:59:59.999Z');
-    const match = Object.keys(dateFilter).length ? { date: dateFilter } : {};
+    const match = Object.keys(dateFilter).length
+      ? { date: dateFilter, status: { $ne: 'Carry-Forward' } }
+      : { status: { $ne: 'Carry-Forward' } };
 
     let format;
     if (groupBy === 'year') format = { $dateToString: { format: '%Y', date: '$date' } };
@@ -108,19 +112,20 @@ export const getTrends = async (req, res, next) => {
 export const getExport = async (req, res, next) => {
   try {
     const { startDate, endDate, status } = req.query;
-    let query = {};
+    let query = { status: { $ne: 'Carry-Forward' } };
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate + 'T23:59:59.999Z');
     }
-    if (status) query.status = status;
+    if (status && status !== 'Carry-Forward') query.status = status;
 
     const invoices = await Invoice.find(query)
       .populate('customer', 'name phone')
       .sort({ date: -1 });
 
     const data = invoices.map((inv, i) => ({
+      _id: inv._id,
       'Sl No': i + 1,
       'Invoice No': inv.invoiceNo,
       Date: inv.date ? inv.date.toISOString().split('T')[0] : '',

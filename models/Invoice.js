@@ -37,8 +37,13 @@ const invoiceSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['Paid', 'Partial', 'Unpaid', 'DueToNext'],
+    enum: ['Paid', 'Partial', 'Unpaid', 'Carry-Forward'],
     default: 'Unpaid',
+  },
+  carriedForwardTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Invoice',
+    default: null,
   },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

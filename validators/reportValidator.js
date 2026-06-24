@@ -14,5 +14,5 @@ export const trendsSchema = Joi.object({
 export const exportSchema = Joi.object({
   startDate: Joi.date().iso().optional(),
   endDate: Joi.date().iso().optional(),
-  status: Joi.string().valid('Paid', 'Unpaid', 'Partial', 'DueToNext').optional(),
+  status: Joi.string().valid('Paid', 'Unpaid', 'Partial', 'Carry-Forward').optional(),
 });
