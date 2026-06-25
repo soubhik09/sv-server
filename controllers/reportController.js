@@ -100,10 +100,48 @@ export const getTrends = async (req, res, next) => {
       { $sort: { _id: 1 } },
     ]);
 
-    sendSuccess(
-      res,
-      trends.map((t) => ({ date: t._id, sales: t.sales, collection: t.collection, count: t.count }))
+    const map = Object.fromEntries(
+      trends.map((t) => [t._id, { date: t._id, sales: t.sales, collection: t.collection, count: t.count }])
     );
+
+    // Fill all periods with 0 from first invoice date up to today
+    const now = new Date();
+    const firstInvoice = await Invoice.findOne({ status: { $ne: 'Carry-Forward' } }).sort({ date: 1 }).select('date');
+    const startFrom = firstInvoice ? new Date(firstInvoice.date) : now;
+    let filled = [];
+
+    if (groupBy === 'day') {
+      const cursor = new Date(startFrom);
+      cursor.setHours(0, 0, 0, 0);
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      while (cursor <= today) {
+        const d = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+        filled.push(map[d] || { date: d, sales: 0, collection: 0, count: 0 });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else if (groupBy === 'month') {
+      let y = startFrom.getFullYear(), m = startFrom.getMonth();
+      const endY = now.getFullYear(), endM = now.getMonth();
+      while (y < endY || (y === endY && m <= endM)) {
+        const d = `${y}-${String(m + 1).padStart(2, '0')}`;
+        filled.push(map[d] || { date: d, sales: 0, collection: 0, count: 0 });
+        m++;
+        if (m > 11) { m = 0; y++; }
+      }
+    } else if (groupBy === 'year') {
+      const startY = startFrom.getFullYear();
+      const endY = now.getFullYear();
+      for (let i = startY; i <= endY; i++) {
+        const d = String(i);
+        filled.push(map[d] || { date: d, sales: 0, collection: 0, count: 0 });
+      }
+    } else {
+      // week or fallback - return as-is
+      filled = trends.map((t) => ({ date: t._id, sales: t.sales, collection: t.collection, count: t.count }));
+    }
+
+    sendSuccess(res, filled);
   } catch (error) {
     next(error);
   }
