@@ -72,17 +72,11 @@ export const updateCustomer = async (req, res, next) => {
 
 export const deleteCustomer = async (req, res, next) => {
   try {
-    const invoices = await Invoice.countDocuments({ customer: req.params.id });
-    if (invoices > 0) {
-      throw new AppError(
-        `Cannot delete customer with ${invoices} existing invoice(s). Archive instead.`,
-        400
-      );
-    }
-
-    const customer = await Customer.findByIdAndDelete(req.params.id);
+    const customerId = req.params.id;
+    const customer = await Customer.findById(customerId);
     if (!customer) throw new AppError('Customer not found', 404);
-
+    await Invoice.deleteMany({ customer: customerId });de
+    await Customer.findByIdAndDelete(customerId);
     sendSuccess(res, null, 200, 'Customer deleted successfully');
   } catch (error) {
     next(error);
