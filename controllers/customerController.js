@@ -75,7 +75,7 @@ export const deleteCustomer = async (req, res, next) => {
     const customerId = req.params.id;
     const customer = await Customer.findById(customerId);
     if (!customer) throw new AppError('Customer not found', 404);
-    await Invoice.deleteMany({ customer: customerId });de
+    await Invoice.deleteMany({ customer: customerId });
     await Customer.findByIdAndDelete(customerId);
     sendSuccess(res, null, 200, 'Customer deleted successfully');
   } catch (error) {
